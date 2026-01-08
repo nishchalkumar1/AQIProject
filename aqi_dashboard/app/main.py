@@ -766,7 +766,7 @@ def get_forecast(city: str = Query(..., description="City name")):
     except Exception as e:
         print(f"Rolling mean fallback failed: {e}")
 
-    # 3. FINAL FALLBACK: Simple persistence baseline with synthetic data
+    # 3. FINAL FALLBACK: Persistence baseline with realistic daily patterns
     try:
         # Get current live data as baseline
         live_data = get_live_data(city)
@@ -775,13 +775,47 @@ def get_forecast(city: str = Query(..., description="City name")):
             last_aqi = float(live_data['aqi'])
             last_time = pd.to_datetime(live_data.get('datetime', datetime.now()))
             
-            # Generate forecast with slight variations
-            np.random.seed(42)
+            # Generate forecast with realistic daily patterns and variations
+            np.random.seed(int(datetime.now().timestamp()) % 1000)  # More random seed
+            
             for h in range(1, forecast_hours + 1):
                 future_time = last_time + pd.Timedelta(hours=h)
-                # Add small random variation to make it more realistic
-                variation = np.random.normal(0, last_pm25 * 0.02)
-                forecast_pm25 = max(0, last_pm25 + variation)
+                hour_of_day = future_time.hour
+                day_of_week = future_time.dayofweek
+                
+                # Daily pattern: Higher during rush hours (morning 7-10, evening 17-21)
+                if 7 <= hour_of_day <= 10:
+                    hourly_factor = 1.15 + np.random.uniform(0, 0.15)  # Morning rush
+                elif 17 <= hour_of_day <= 21:
+                    hourly_factor = 1.20 + np.random.uniform(0, 0.20)  # Evening rush (higher)
+                elif 11 <= hour_of_day <= 16:
+                    hourly_factor = 0.95 + np.random.uniform(-0.05, 0.10)  # Mid-day
+                elif 22 <= hour_of_day or hour_of_day <= 4:
+                    hourly_factor = 0.75 + np.random.uniform(-0.10, 0.10)  # Night (lower)
+                else:
+                    hourly_factor = 0.85 + np.random.uniform(-0.05, 0.10)  # Early morning
+                
+                # Weekly pattern: Slightly higher on weekdays
+                if day_of_week < 5:  # Weekday
+                    weekly_factor = 1.05 + np.random.uniform(-0.05, 0.10)
+                else:  # Weekend
+                    weekly_factor = 0.90 + np.random.uniform(-0.05, 0.10)
+                
+                # Add random walk component for natural variation
+                random_walk = np.random.normal(0, last_pm25 * 0.08)  # 8% random variation
+                
+                # Long-term trend (slight decay or increase based on current level)
+                if last_aqi > 300:
+                    trend_factor = 0.998  # Slight improvement if very poor
+                elif last_aqi < 100:
+                    trend_factor = 1.002  # Slight worsening if good
+                else:
+                    trend_factor = 1.0
+                
+                # Calculate forecast PM2.5
+                forecast_pm25 = last_pm25 * hourly_factor * weekly_factor * (trend_factor ** h) + random_walk
+                forecast_pm25 = max(5, min(500, forecast_pm25))  # Keep within realistic bounds
+                
                 forecast_aqi = calculate_aqi_pm25(forecast_pm25)
                 forecast_aqi = max(0, min(500, forecast_aqi if forecast_aqi is not None else 0))
                 
@@ -790,7 +824,7 @@ def get_forecast(city: str = Query(..., description="City name")):
                     "pm25": forecast_pm25,
                     "aqi": forecast_aqi,
                     "horizon": f"{h}h",
-                    "source": "Persistence Baseline",
+                    "source": "Persistence Baseline with Daily Patterns",
                 })
             if forecast_data:
                 return {"forecast": forecast_data}
