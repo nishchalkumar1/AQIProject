@@ -557,7 +557,7 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["📊 Overview", "🗺️ Interactive Map", "🏙️ City Analysis", "🔮 Forecast", "🏥 Health Advisory", "📈 Reports", "⚙️ Settings"],
+        ["📊 Overview", "🗺️ Interactive Map", "🏙️ City Analysis", "🔮 Forecast", "🏥 Health Advisory", "📈 Reports", "⚙️ Settings", "ℹ️ About"],
         key="nav_radio",
         label_visibility="collapsed"
     )
@@ -570,7 +570,8 @@ with st.sidebar:
         "🔮 Forecast": "Forecast",
         "🏥 Health Advisory": "Health Advisory",
         "📈 Reports": "Reports",
-        "⚙️ Settings": "Settings"
+        "⚙️ Settings": "Settings",
+        "ℹ️ About": "About"
     }
     st.session_state.current_page = page_map[page]
 
@@ -582,7 +583,8 @@ page_titles = {
     "Forecast": "AQI Forecast & Predictions",
     "Health Advisory": "Health Impact & Advisory",
     "Reports": "AQI Reports & Data Export",
-    "Settings": "Settings & Preferences"
+    "Settings": "Settings & Preferences",
+    "About": "About VayuTel"
 }
 
 st.markdown(f"""
@@ -593,6 +595,9 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # City Selection (supports full Indian city list via OpenAQ - Approach A)
+# Hide city selector on pages that don't need it (About, Settings)
+show_city_selector = st.session_state.current_page not in ["About", "Settings"]
+
 raw_cities = get_cities() or []
 
 # Normalize city objects: each should be {city, state, lat, lon}
@@ -637,11 +642,16 @@ if not city_options:
     }
     city_names_for_fetch = [c["city"] for c in fallback]
 
-selected_label = st.selectbox(
-    "Select Indian City (live list via OpenAQ)",
-    city_options,
-    key="city_selector",
-)
+if show_city_selector:
+    selected_label = st.selectbox(
+        "Select Indian City (live list via OpenAQ)",
+        city_options,
+        key="city_selector",
+    )
+else:
+    # Use default city silently for About/Settings pages
+    selected_label = city_options[0] if city_options else "Delhi, Delhi"
+
 selected_city_obj = city_lookup.get(selected_label, {})
 selected_city = selected_city_obj.get("city", selected_label)
 selected_city_lat = selected_city_obj.get("lat")
@@ -845,7 +855,7 @@ if st.session_state.current_page == "Overview":
         
         st.markdown("""
             <div class="chart-container">
-                <div class="chart-title">📈 Hourly AQI Trend - Past 168 Hours (CPCB Standards)</div>
+                <div class="chart-title"> Hourly AQI Trend - Past 168 Hours (CPCB Standards)</div>
         """, unsafe_allow_html=True)
         
         fig_trend = go.Figure()
@@ -932,7 +942,7 @@ if st.session_state.current_page == "Overview":
         st.plotly_chart(fig_trend, width='stretch')
         st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.info("📊 No historical data available. Please ensure data ingestion has been completed.")
+        st.info(" No historical data available. Please ensure data ingestion has been completed.")
 
 elif st.session_state.current_page == "Interactive Map":
     st.markdown("## Interactive AQI Map")
@@ -1042,7 +1052,7 @@ elif st.session_state.current_page == "Interactive Map":
     # Interactive Map Section
     st.markdown("""
         <div class="chart-container">
-            <div class="chart-title">🗺️ Interactive Map - Click to Get AQI</div>
+            <div class="chart-title"> Interactive Map - Click to Get AQI</div>
     """, unsafe_allow_html=True)
     
     # Use folium for interactive map (works without API key)
@@ -1153,7 +1163,7 @@ elif st.session_state.current_page == "Interactive Map":
         
         st.markdown("""
             <div style="padding: 16px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; margin-top: 16px;">
-                <strong style="color: #6366F1; font-size: 16px;">💡 How to Use:</strong><br>
+                <strong style="color: #6366F1; font-size: 16px;"> How to Use:</strong><br>
                 <span style="color: #D1D5DB; font-size: 15px; line-height: 1.8;">
                 1. Click anywhere on the map to select a location<br>
                 2. The coordinates will be captured automatically<br>
@@ -1190,7 +1200,7 @@ elif st.session_state.current_page == "City Analysis":
         
         st.markdown("""
             <div class="chart-container">
-                <div class="chart-title">🏙️ City-Wise AQI Comparison</div>
+                <div class="chart-title"> City-Wise AQI Comparison</div>
         """, unsafe_allow_html=True)
         
         fig_cities = px.bar(
@@ -1252,7 +1262,7 @@ elif st.session_state.current_page == "Forecast":
     if forecast_data:
         st.markdown("""
             <div class="chart-container">
-                <div class="chart-title">🔮 Forecasted AQI - Starting from Next Hour</div>
+                <div class="chart-title"> Forecasted AQI - Starting from Next Hour</div>
         """, unsafe_allow_html=True)
         
         forecast_df = pd.DataFrame(forecast_data)
@@ -1525,7 +1535,7 @@ elif st.session_state.current_page == "Reports":
         # Download button
         csv = history_df.to_csv(index=False)
         st.download_button(
-            label="📥 Download Data as CSV",
+            label=" Download Data as CSV",
             data=csv,
             file_name=f"aqi_data_{selected_city}_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv"
@@ -1538,7 +1548,7 @@ elif st.session_state.current_page == "Settings":
     
     st.markdown("""
         <div class="chart-container">
-            <div class="chart-title">⚙️ Dashboard Preferences</div>
+            <div class="chart-title"> Dashboard Preferences</div>
     """, unsafe_allow_html=True)
     
     st.markdown("### Display Settings")
@@ -1551,10 +1561,356 @@ elif st.session_state.current_page == "Settings":
                                    ["200 (Moderate)", "300 (Poor)", "400 (Very Poor)", "500 (Severe)"])
     
     
-    if st.button("💾 Save Settings", type="primary"):
+    
+    if st.button(" Save Settings", type="primary"):
         st.success("Settings saved successfully!")
     
     st.markdown("</div>", unsafe_allow_html=True)
+
+elif st.session_state.current_page == "About":
+    # Premium Portfolio-Style About Page
+    st.markdown("""
+        <style>
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            @keyframes float {
+                0%, 100% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+            }
+            @keyframes glow {
+                0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+                50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
+            }
+            
+            .about-page {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            
+            /* Hero Section */
+            .hero-section {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 40px;
+                padding: 40px;
+                background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 50%, rgba(15, 23, 42, 0.8) 100%);
+                border-radius: 24px;
+                border: 1px solid rgba(99, 102, 241, 0.2);
+                margin-bottom: 40px;
+                animation: fadeInUp 0.8s ease-out;
+                position: relative;
+                overflow: hidden;
+            }
+            .hero-section::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 50%);
+                animation: float 6s ease-in-out infinite;
+            }
+            .hero-content {
+                flex: 1;
+                z-index: 1;
+            }
+            .hero-3d {
+                flex: 0 0 280px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1;
+            }
+            .hero-greeting {
+                font-size: 16px;
+                color: #818CF8;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 3px;
+                margin-bottom: 10px;
+            }
+            .hero-name {
+                font-size: 42px;
+                font-weight: 800;
+                background: linear-gradient(135deg, #F8FAFC 0%, #818CF8 50%, #6366F1 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-bottom: 8px;
+                line-height: 1.2;
+            }
+            .hero-role {
+                font-size: 20px;
+                color: #94A3B8;
+                font-weight: 500;
+                margin-bottom: 15px;
+            }
+            .hero-tagline {
+                font-size: 18px;
+                color: #6366F1;
+                font-weight: 600;
+                margin-bottom: 20px;
+                padding: 10px 20px;
+                background: rgba(99, 102, 241, 0.1);
+                border-radius: 8px;
+                display: inline-block;
+            }
+            .hero-intro {
+                font-size: 16px;
+                line-height: 1.8;
+                color: #CBD5E1;
+            }
+            
+            /* Premium Card Style */
+            .premium-card {
+                background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(99, 102, 241, 0.2);
+                border-radius: 20px;
+                padding: 35px;
+                margin-bottom: 30px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                animation: fadeInUp 0.8s ease-out;
+                animation-fill-mode: both;
+            }
+            .premium-card:nth-child(2) { animation-delay: 0.2s; }
+            .premium-card:nth-child(3) { animation-delay: 0.4s; }
+            .premium-card:nth-child(4) { animation-delay: 0.6s; }
+            .premium-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 20px 50px rgba(99, 102, 241, 0.2);
+                border-color: rgba(99, 102, 241, 0.5);
+            }
+            
+            .card-header {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .card-icon {
+                font-size: 32px;
+            }
+            .card-title {
+                font-size: 26px;
+                font-weight: 700;
+                background: linear-gradient(to right, #6366F1, #A5B4FC);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .card-text {
+                font-size: 16px;
+                line-height: 1.8;
+                color: #CBD5E1;
+            }
+            .card-features {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                margin-top: 20px;
+            }
+            .feature-tag {
+                padding: 8px 16px;
+                background: rgba(99, 102, 241, 0.15);
+                border: 1px solid rgba(99, 102, 241, 0.3);
+                border-radius: 20px;
+                font-size: 14px;
+                color: #A5B4FC;
+                font-weight: 500;
+            }
+            
+            /* Tech Stack Section */
+            .tech-section-title {
+                font-size: 24px;
+                font-weight: 700;
+                color: #F8FAFC;
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .tech-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 20px;
+                margin-bottom: 25px;
+            }
+            .tech-card {
+                background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(30, 41, 59, 0.6) 100%);
+                border: 1px solid rgba(99, 102, 241, 0.2);
+                border-radius: 16px;
+                padding: 25px 20px;
+                text-align: center;
+                transition: all 0.3s ease;
+                cursor: default;
+            }
+            .tech-card:hover {
+                transform: translateY(-5px) scale(1.02);
+                border-color: rgba(99, 102, 241, 0.6);
+                box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+                animation: glow 2s ease-in-out infinite;
+            }
+            .tech-icon {
+                font-size: 36px;
+                margin-bottom: 12px;
+            }
+            .tech-name {
+                font-size: 14px;
+                font-weight: 600;
+                color: #E2E8F0;
+            }
+            .tech-desc {
+                text-align: center;
+                color: #94A3B8;
+                font-size: 15px;
+                margin-top: 10px;
+            }
+            
+            /* Highlight Card */
+            .highlight-card {
+                background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.1) 50%, rgba(30, 41, 59, 0.8) 100%);
+                border: 2px solid rgba(139, 92, 246, 0.4);
+                border-radius: 20px;
+                padding: 40px;
+                text-align: center;
+                animation: fadeInUp 0.8s ease-out 0.8s both;
+            }
+            .highlight-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 40px rgba(139, 92, 246, 0.25);
+            }
+            .highlight-title {
+                font-size: 22px;
+                font-weight: 700;
+                color: #A78BFA;
+                margin-bottom: 20px;
+            }
+            .highlight-text {
+                font-size: 17px;
+                line-height: 1.9;
+                color: #E2E8F0;
+                max-width: 800px;
+                margin: 0 auto 25px auto;
+            }
+            .signature {
+                font-size: 15px;
+                color: #8B5CF6;
+                font-weight: 600;
+                padding-top: 20px;
+                border-top: 1px solid rgba(139, 92, 246, 0.3);
+                display: inline-block;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # SECTION 1: Hero Section with Lottie Animation
+    st.markdown("""
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="hero-greeting">👋 Hello, I'm</div>
+                <div class="hero-name">Nishchal Kumar</div>
+                <div class="hero-role">CSE Student & Developer</div>
+                <div class="hero-tagline">🌬️ Creator of VayuTel – Air Quality & Health Intelligence Platform</div>
+                <div class="hero-intro">
+                    I am a Computer Science Engineering student passionate about building real-world, data-driven applications. 
+                    VayuTel is the result of months of learning, experimentation, and dedication towards creating a production-style 
+                    environmental intelligence system using AI and modern web technologies.
+                </div>
+            </div>
+            <div class="hero-3d">
+                <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+                <lottie-player src="https://lottie.host/4db68bbd-31f6-4cd8-84eb-189571456e29/WcCM66KKIh.json" 
+                    background="transparent" speed="1" style="width: 280px; height: 280px;" loop autoplay>
+                </lottie-player>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # SECTION 2: About VayuTel
+    st.markdown("""
+        <div class="premium-card">
+            <div class="card-header">
+                <span class="card-icon">🌬️</span>
+                <span class="card-title">About VayuTel</span>
+            </div>
+            <div class="card-text">
+                VayuTel is an advanced air quality monitoring and forecasting platform designed to provide real-time and predictive 
+                insights into air pollution across Indian cities. It integrates live AQI data, weather information, intelligent 
+                forecasting models, and health-focused visualizations to help users understand and respond to air quality risks 
+                in a simple and intuitive way.
+            </div>
+            <div class="card-features">
+                <span class="feature-tag"> Indian AQI (CPCB)</span>
+                <span class="feature-tag"> Real-time Data</span>
+                <span class="feature-tag"> 7-Day History</span>
+                <span class="feature-tag"> 7-Day Forecast</span>
+                <span class="feature-tag"> Map Analysis</span>
+                <span class="feature-tag"> City Comparison</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # SECTION 3: Tech Stack
+    st.markdown("""
+        <div class="premium-card">
+            <div class="tech-section-title"> Built With Modern Technologies</div>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <div class="tech-icon">💻</div>
+                    <div class="tech-name">Python</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">⚡</div>
+                    <div class="tech-name">FastAPI</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🎨</div>
+                    <div class="tech-name">Streamlit</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">📈</div>
+                    <div class="tech-name">Plotly</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🤖</div>
+                    <div class="tech-name">ARIMA / ML</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-icon">🌐</div>
+                    <div class="tech-name">Open-Meteo API</div>
+                </div>
+            </div>
+            <div class="tech-desc">
+                Built with modern technologies focused on performance, scalability, and real-world usability.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # SECTION 4: Personal Note
+    st.markdown("""
+        <div class="highlight-card">
+            <div class="highlight-title"> Behind the Project</div>
+            <div class="highlight-text">
+                This project represents my dedication, consistency, and curiosity to learn and build something meaningful. 
+                Every part of VayuTel — from data pipelines to visual design — was carefully crafted to match real-world systems 
+                and professional standards. It showcases not just technical skills, but the passion to create impactful solutions.
+            </div>
+            <div class="signature">
+                Built with ❤️, patience, and a lot of debugging.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
 
 # Add Trend & Spike Insights to Overview page
 if st.session_state.current_page == "Overview" and not history_df.empty:
@@ -1585,12 +1941,12 @@ if st.session_state.current_page == "Overview" and not history_df.empty:
     
     if len(low_pollution) > 0:
         insights.append({
-            "title": "✅ Low Pollution Windows",
+            "title": " Low Pollution Windows",
             "text": f"Identified {len(low_pollution)} periods with AQI ≤ 50 (Good category). Minimum AQI: {int(min_aqi)}. Best air quality typically observed during early morning hours and after rainfall."
         })
     
     insights.append({
-        "title": "📊 Daily Pattern Analysis",
+        "title": " Daily Pattern Analysis",
         "text": f"Average AQI: {int(avg_aqi)}. Peak pollution hour: {peak_hour}:00 ({int(hourly_avg[peak_hour])} AQI). Best air quality hour: {best_hour}:00 ({int(hourly_avg[best_hour])} AQI)."
     })
     
@@ -1599,7 +1955,7 @@ if st.session_state.current_page == "Overview" and not history_df.empty:
         daily_avg = history_df.groupby(history_df['datetime'].dt.date)['aqi'].mean()
         if daily_avg.std() > 30:
             insights.append({
-                "title": "🔄 Recurring Spike Patterns",
+                "title": " Recurring Spike Patterns",
                 "text": "Significant day-to-day variation detected. Pollution spikes may correlate with weekday traffic patterns, industrial activity, or meteorological conditions."
         })
     
