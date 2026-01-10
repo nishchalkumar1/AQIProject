@@ -911,8 +911,10 @@ if st.session_state.current_page == "Overview":
             xaxis=dict(
                 showgrid=True,
                 gridcolor='rgba(99, 102, 241, 0.1)',
-                title='Date & Hour',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='Date & Hour',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=12),
                 tickformat='%m/%d %H:00',
                 dtick=86400000,  # Show one tick per day (in milliseconds)
@@ -921,8 +923,10 @@ if st.session_state.current_page == "Overview":
             yaxis=dict(
                 showgrid=True,
                 gridcolor='rgba(99, 102, 241, 0.1)',
-                title='AQI (CPCB Standard)',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='AQI (CPCB Standard)',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=12),
                 range=[0, max(500, history_df['aqi'].max() * 1.1)]
             ),
@@ -1228,21 +1232,25 @@ elif st.session_state.current_page == "City Analysis":
             font={'color': '#E5E7EB', 'family': 'Inter', 'size': 16},
             xaxis=dict(
                 showgrid=False,
-                title='City',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='City',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=14)
             ),
             yaxis=dict(
                 showgrid=True,
                 gridcolor='rgba(99, 102, 241, 0.15)',
-                title='AQI',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='AQI',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=14)
             ),
             height=500,
             margin=dict(l=60, r=60, t=50, b=60)
         )
-        
+  
         st.plotly_chart(fig_cities, width='stretch')
         st.markdown("</div>", unsafe_allow_html=True)
         
@@ -1388,8 +1396,10 @@ elif st.session_state.current_page == "Forecast":
             xaxis=dict(
                 showgrid=True,
                 gridcolor='rgba(99, 102, 241, 0.1)',
-                title='Date & Hour',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='Date & Hour',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=12),
                 tickformat='%m/%d %H:00',
                 dtick=86400000,  # Show one tick per day
@@ -1398,8 +1408,10 @@ elif st.session_state.current_page == "Forecast":
             yaxis=dict(
                 showgrid=True,
                 gridcolor='rgba(99, 102, 241, 0.1)',
-                title='AQI (CPCB Standard)',
-                titlefont=dict(color='#9CA3AF', size=16),
+                title=dict(
+                    text='AQI (CPCB Standard)',
+                    font=dict(color='#9CA3AF', size=16)
+                ),
                 tickfont=dict(color='#9CA3AF', size=12),
                 range=[0, max(500, forecast_df['aqi'].max() * 1.1 if not forecast_df.empty else 500)]
             ),
@@ -1408,14 +1420,14 @@ elif st.session_state.current_page == "Forecast":
             hovermode='x unified',
             legend=dict(
                 bgcolor='rgba(0,0,0,0)',
-                bordercolor='rgba(99, 102, 241, 0.3)',
+                bordercolor='rgba(139, 92, 246, 0.3)',
                 borderwidth=1,
                 font=dict(color='#E5E7EB', size=14),
                 x=0.02,
                 y=0.98
             )
         )
-        
+    
         st.plotly_chart(fig_forecast, width='stretch')
         
         # Forecast summary
