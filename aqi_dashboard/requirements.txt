@@ -2,7 +2,7 @@ pandas
 numpy
 scikit-learn
 statsmodels
-tensorflow
+tensorflow-cpu
 fastapi
 uvicorn
 streamlit
