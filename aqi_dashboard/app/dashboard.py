@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
-
+import os
 # Page Config
 st.set_page_config(
     page_title="VayuTel - Air Quality Intelligence",
@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Constants
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
 # Initialize session state for navigation
 if 'current_page' not in st.session_state:
