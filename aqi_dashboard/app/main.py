@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 from typing import List, Optional, Tuple, Dict, Any
 import math
+IS_RENDER = bool(os.getenv("RENDER")) or bool(os.getenv("RENDER_SERVICE_ID"))
+
 
 # Add parent dir to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -146,13 +148,18 @@ def ensure_models_loaded():
             print(f"Failed to load Scaler: {e}")
 
     # Load LSTM
-    try:
-        from tensorflow.keras.models import load_model
-        if os.path.exists(LSTM_MODEL_PATH):
-            models['lstm'] = load_model(LSTM_MODEL_PATH)
-            print("LSTM model loaded.")
-    except Exception as e:
-        print(f"Failed to load LSTM: {e}")
+    # Load LSTM ONLY locally (Render free tier cannot hold TF in RAM)
+    if not IS_RENDER:
+        try:
+            from tensorflow.keras.models import load_model
+            if os.path.exists(LSTM_MODEL_PATH):
+                models['lstm'] = load_model(LSTM_MODEL_PATH)
+                print("LSTM model loaded.")
+        except Exception as e:
+            print(f"Failed to load LSTM: {e}")
+    else:
+        print("Running on Render: LSTM disabled for memory safety")
+  
 
     models["_loaded"] = True
     print("All models loaded successfully.")
@@ -633,7 +640,7 @@ def get_forecast(city: str = Query(..., description="City name")):
     Uses ARIMA model if available, otherwise falls back to persistence/rolling mean.
     """
     ensure_models_loaded()
-    
+
     forecast_data = []
     forecast_hours = 168  # 7 days * 24 hours
     
