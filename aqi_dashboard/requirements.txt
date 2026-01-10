@@ -4,5 +4,6 @@ scikit-learn
 statsmodels
 fastapi
 uvicorn
-plotly
+streamlit
+plotly==5.22.0
 requests
