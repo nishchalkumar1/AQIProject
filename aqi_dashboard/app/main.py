@@ -36,6 +36,7 @@ INDIAN_CITIES_FILE = os.path.join(os.path.dirname(__file__), '../data/indian_cit
 
 models: Dict[str, Any] = {}
 
+
 # -----------------------------------------------------------------------------
 # Dynamic Indian city list (Approach B - local CSV dataset)
 # -----------------------------------------------------------------------------
@@ -85,6 +86,77 @@ def load_indian_cities_from_file() -> List[Dict[str, Any]]:
 
     return INDIAN_CITIES_CACHE
 
+# -----------------------------------------------------------------------------
+# Lazy loading helpers (CRITICAL for cloud stability)
+# -----------------------------------------------------------------------------
+
+def ensure_models_loaded():
+    """
+    Load heavy ML models only once, on first use.
+    This prevents Render from crashing on cold start.
+    """
+    if models.get("_loaded", False):
+        return
+
+    print("Lazy-loading models now...")
+
+    # Pre-load Indian cities
+    try:
+        cities = load_indian_cities_from_file()
+        print(f"Loaded {len(cities)} Indian cities from local CSV")
+    except Exception as e:
+        print(f"Failed to load cities from CSV: {e}")
+
+    # Load legacy ARIMA
+    if os.path.exists(ARIMA_MODEL_PATH):
+        try:
+            with open(ARIMA_MODEL_PATH, 'rb') as f:
+                models['arima_legacy'] = pickle.load(f)
+            print("Legacy ARIMA model loaded.")
+        except Exception as e:
+            print(f"Failed to load legacy ARIMA: {e}")
+
+    # Load per-city ARIMA models
+    try:
+        arima_city_models: Dict[str, Any] = {}
+        models_dir = os.path.join(os.path.dirname(__file__), '../models/saved')
+        if os.path.isdir(models_dir):
+            for fname in os.listdir(models_dir):
+                if fname.startswith("arima_") and fname.endswith(".pkl"):
+                    city_slug = fname[len("arima_"):-4]
+                    path = os.path.join(models_dir, fname)
+                    try:
+                        with open(path, 'rb') as f:
+                            arima_city_models[city_slug] = pickle.load(f)
+                    except Exception as e:
+                        print(f"Failed to load ARIMA model {fname}: {e}")
+        if arima_city_models:
+            models['arima_city'] = arima_city_models
+            print(f"Loaded {len(arima_city_models)} per-city ARIMA models.")
+    except Exception as e:
+        print(f"Failed to scan/load per-city ARIMA models: {e}")
+
+    # Load scaler
+    if os.path.exists(SCALER_PATH):
+        try:
+            with open(SCALER_PATH, 'rb') as f:
+                models['scaler'] = pickle.load(f)
+            print("Scaler loaded.")
+        except Exception as e:
+            print(f"Failed to load Scaler: {e}")
+
+    # Load LSTM
+    try:
+        from tensorflow.keras.models import load_model
+        if os.path.exists(LSTM_MODEL_PATH):
+            models['lstm'] = load_model(LSTM_MODEL_PATH)
+            print("LSTM model loaded.")
+    except Exception as e:
+        print(f"Failed to load LSTM: {e}")
+
+    models["_loaded"] = True
+    print("All models loaded successfully.")
+
 
 def get_city_coords(city: str) -> Optional[Tuple[float, float]]:
     """
@@ -104,67 +176,7 @@ def get_city_coords(city: str) -> Optional[Tuple[float, float]]:
 
     return None
 
-@app.on_event("startup")
-def load_models():
-    print("Loading models...")
 
-    # Pre-load Indian cities from local CSV
-    try:
-        cities = load_indian_cities_from_file()
-        print(f"Loaded {len(cities)} Indian cities from local CSV")
-    except Exception as e:
-        print(f"Failed to load cities from CSV (will use fallback): {e}")
-
-    # Load legacy single ARIMA model (optional)
-    if os.path.exists(ARIMA_MODEL_PATH):
-        try:
-            with open(ARIMA_MODEL_PATH, 'rb') as f:
-                models['arima_legacy'] = pickle.load(f)
-            print("Legacy ARIMA model loaded.")
-        except Exception as e:
-            print(f"Failed to load legacy ARIMA: {e}")
-
-    # Load per-city ARIMA models if available
-    try:
-        arima_city_models: Dict[str, Any] = {}
-        models_dir = os.path.join(os.path.dirname(__file__), '../models/saved')
-        if os.path.isdir(models_dir):
-            for fname in os.listdir(models_dir):
-                if fname.startswith("arima_") and fname.endswith(".pkl"):
-                    city_slug = fname[len("arima_"):-4]
-                    path = os.path.join(models_dir, fname)
-                    try:
-                        with open(path, 'rb') as f:
-                            arima_city_models[city_slug] = pickle.load(f)
-                    except Exception as e:
-                        print(f"Failed to load ARIMA model {fname}: {e}")
-        if arima_city_models:
-            models['arima_city'] = arima_city_models
-            print(f"Loaded {len(arima_city_models)} per-city ARIMA models.")
-    except Exception as e:
-        print(f"Failed to scan/load per-city ARIMA models: {e}")
-            
-    # Load LSTM (Tensorflow models usually need load_model)
-    # For now, we might skipping loading LSTM here if it causes issues, 
-    # or use lazy loading. But let's try.
-    # We also need the scaler.
-    if os.path.exists(SCALER_PATH):
-        try:
-            with open(SCALER_PATH, 'rb') as f:
-                models['scaler'] = pickle.load(f)
-            print("Scaler loaded.")
-        except Exception as e:
-            print(f"Failed to load Scaler: {e}")
-
-    # Note: LSTM loading usually requires tensorflow which is heavy. 
-    # We will load it here, but wrap in try/except.
-    try:
-        from tensorflow.keras.models import load_model
-        if os.path.exists(LSTM_MODEL_PATH):
-            models['lstm'] = load_model(LSTM_MODEL_PATH)
-            print("LSTM model loaded.")
-    except Exception as e:
-        print(f"Failed to load LSTM: {e}")
 
 
 def get_db_connection():
@@ -399,6 +411,8 @@ def get_history(city: str = Query(..., description="City name"), period: str = "
     Historical AQI with HOURLY resolution for exactly 7 days (168 hours).
     Returns interpolated hourly data if some hours are missing.
     """
+    ensure_models_loaded()
+
     try:
         conn = get_db_connection()
         
@@ -618,6 +632,8 @@ def get_forecast(city: str = Query(..., description="City name")):
     Generate HOURLY AQI forecast for exactly 7 days (168 hours).
     Uses ARIMA model if available, otherwise falls back to persistence/rolling mean.
     """
+    ensure_models_loaded()
+    
     forecast_data = []
     forecast_hours = 168  # 7 days * 24 hours
     
