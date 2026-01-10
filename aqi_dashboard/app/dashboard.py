@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Constants
-API_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+API_URL = os.getenv("API_BASE_URL", "https://vayutel-backend.onrender.com")
 
 # Initialize session state for navigation
 if 'current_page' not in st.session_state:
