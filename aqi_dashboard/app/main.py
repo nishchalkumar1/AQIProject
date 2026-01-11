@@ -109,34 +109,38 @@ def ensure_models_loaded():
     except Exception as e:
         print(f"Failed to load cities from CSV: {e}")
 
-    # Load legacy ARIMA
-    if os.path.exists(ARIMA_MODEL_PATH):
-        try:
-            with open(ARIMA_MODEL_PATH, 'rb') as f:
-                models['arima_legacy'] = pickle.load(f)
-            print("Legacy ARIMA model loaded.")
-        except Exception as e:
-            print(f"Failed to load legacy ARIMA: {e}")
+    # Load ARIMA models ONLY locally (Render free tier cannot hold ~130MB of pkl files in RAM)
+    if not IS_RENDER:
+        # Load legacy ARIMA
+        if os.path.exists(ARIMA_MODEL_PATH):
+            try:
+                with open(ARIMA_MODEL_PATH, 'rb') as f:
+                    models['arima_legacy'] = pickle.load(f)
+                print("Legacy ARIMA model loaded.")
+            except Exception as e:
+                print(f"Failed to load legacy ARIMA: {e}")
 
-    # Load per-city ARIMA models
-    try:
-        arima_city_models: Dict[str, Any] = {}
-        models_dir = os.path.join(os.path.dirname(__file__), '../models/saved')
-        if os.path.isdir(models_dir):
-            for fname in os.listdir(models_dir):
-                if fname.startswith("arima_") and fname.endswith(".pkl"):
-                    city_slug = fname[len("arima_"):-4]
-                    path = os.path.join(models_dir, fname)
-                    try:
-                        with open(path, 'rb') as f:
-                            arima_city_models[city_slug] = pickle.load(f)
-                    except Exception as e:
-                        print(f"Failed to load ARIMA model {fname}: {e}")
-        if arima_city_models:
-            models['arima_city'] = arima_city_models
-            print(f"Loaded {len(arima_city_models)} per-city ARIMA models.")
-    except Exception as e:
-        print(f"Failed to scan/load per-city ARIMA models: {e}")
+        # Load per-city ARIMA models
+        try:
+            arima_city_models: Dict[str, Any] = {}
+            models_dir = os.path.join(os.path.dirname(__file__), '../models/saved')
+            if os.path.isdir(models_dir):
+                for fname in os.listdir(models_dir):
+                    if fname.startswith("arima_") and fname.endswith(".pkl"):
+                        city_slug = fname[len("arima_"):-4]
+                        path = os.path.join(models_dir, fname)
+                        try:
+                            with open(path, 'rb') as f:
+                                arima_city_models[city_slug] = pickle.load(f)
+                        except Exception as e:
+                            print(f"Failed to load ARIMA model {fname}: {e}")
+            if arima_city_models:
+                models['arima_city'] = arima_city_models
+                print(f"Loaded {len(arima_city_models)} per-city ARIMA models.")
+        except Exception as e:
+            print(f"Failed to scan/load per-city ARIMA models: {e}")
+    else:
+        print("Running on Render: ARIMA models disabled for memory safety (using fallback forecasting)")
 
     # Load scaler
     if os.path.exists(SCALER_PATH):
