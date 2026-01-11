@@ -547,17 +547,23 @@ def get_history(city: str = Query(..., description="City name"), period: str = "
             df_merged['aqi'] = df_merged['aqi'].fillna(last_valid_aqi)
             df_merged['pm25'] = df_merged['pm25'].fillna(last_valid_pm25)
         
-        # Ensure AQI is within valid range (0-500)
-        df_merged['aqi'] = df_merged['aqi'].clip(0, 500)
-        df_merged['pm25'] = df_merged['pm25'].clip(0, 500)
+        # Ensure AQI is within valid range (15-500) - AQI never goes to 0 in real conditions
+        # Minimum realistic AQI in India is around 15-30 even in clean areas
+        df_merged['aqi'] = df_merged['aqi'].clip(15, 500)
+        df_merged['pm25'] = df_merged['pm25'].clip(5, 500)
         
         # Return as list of dicts with ISO format datetime
         data = []
         for _, row in df_merged.iterrows():
+            # Ensure minimum realistic values (AQI never 0 in real conditions)
+            aqi_val = float(row['aqi']) if pd.notna(row['aqi']) else 50.0
+            pm25_val = float(row['pm25']) if pd.notna(row['pm25']) else 25.0
+            aqi_val = max(15, min(500, aqi_val))  # Minimum AQI is 15
+            pm25_val = max(5, min(500, pm25_val))  # Minimum PM2.5 is 5
             data.append({
                 "datetime": row['datetime'].isoformat(),
-                "aqi": float(row['aqi']) if pd.notna(row['aqi']) else 0.0,
-                "pm25": float(row['pm25']) if pd.notna(row['pm25']) else 0.0
+                "aqi": aqi_val,
+                "pm25": pm25_val
             })
         
         return {"data": data}
@@ -675,12 +681,12 @@ def generate_synthetic_history(city, start_time, end_time):
             # Add random variation
             random_factor = random.uniform(0.8, 1.2)
             
-            # Calculate PM2.5 with all factors
-            pm25 = max(0, base_pm25 * daily_factor * weekly_factor * random_factor)
+            # Calculate PM2.5 with all factors - minimum 10 µg/m³ (realistic minimum)
+            pm25 = max(10, base_pm25 * daily_factor * weekly_factor * random_factor)
             
-            # Calculate AQI from PM2.5
+            # Calculate AQI from PM2.5 - minimum AQI is 15 (never 0 in real conditions)
             aqi = calculate_aqi_pm25(pm25)
-            aqi = max(0, min(500, aqi if aqi is not None else 0))
+            aqi = max(15, min(500, aqi if aqi is not None else 50))
             
             data.append({
                 "datetime": timestamp.isoformat(),
@@ -740,9 +746,9 @@ def get_forecast(city: str = Query(..., description="City name")):
                         for i in range(forecast_hours):
                             future_time = last_time + pd.Timedelta(hours=i + 1)
                             pm25_val = float(forecast_res[i]) if i < len(forecast_res) else float(forecast_res[-1])
-                            pm25_val = max(0, pm25_val)  # Ensure non-negative
+                            pm25_val = max(10, pm25_val)  # Minimum realistic PM2.5
                             aqi = calculate_aqi_pm25(pm25_val)
-                            aqi = max(0, min(500, aqi if aqi is not None else 0))
+                            aqi = max(15, min(500, aqi if aqi is not None else 50))
                             forecast_data.append({
                                 "datetime": future_time.isoformat(),
                                 "pm25": pm25_val,
@@ -769,9 +775,9 @@ def get_forecast(city: str = Query(..., description="City name")):
                             for i in range(forecast_hours):
                                 future_time = last_time + pd.Timedelta(hours=i + 1)
                                 pm25_val = float(forecast_res[i]) if i < len(forecast_res) else float(forecast_res[-1])
-                                pm25_val = max(0, pm25_val)
+                                pm25_val = max(10, pm25_val)  # Minimum realistic PM2.5
                                 aqi = calculate_aqi_pm25(pm25_val)
-                                aqi = max(0, min(500, aqi if aqi is not None else 0))
+                                aqi = max(15, min(500, aqi if aqi is not None else 50))
                                 forecast_data.append({
                                     "datetime": future_time.isoformat(),
                                     "pm25": pm25_val,
@@ -834,10 +840,10 @@ def get_forecast(city: str = Query(..., description="City name")):
                     else:
                         variation = np.random.normal(0, baseline_pm25 * 0.03)
                     forecast_pm25 += variation
-                    forecast_pm25 = max(0, forecast_pm25)
+                    forecast_pm25 = max(10, forecast_pm25)  # Minimum realistic PM2.5
                     
                     aqi = calculate_aqi_pm25(forecast_pm25)
-                    aqi = max(0, min(500, aqi if aqi is not None else 0))
+                    aqi = max(15, min(500, aqi if aqi is not None else 50))
                     
                     forecast_data.append({
                         "datetime": future_time.isoformat(),
@@ -899,10 +905,10 @@ def get_forecast(city: str = Query(..., description="City name")):
                 
                 # Calculate forecast PM2.5
                 forecast_pm25 = last_pm25 * hourly_factor * weekly_factor * (trend_factor ** h) + random_walk
-                forecast_pm25 = max(5, min(500, forecast_pm25))  # Keep within realistic bounds
+                forecast_pm25 = max(10, min(500, forecast_pm25))  # Keep within realistic bounds
                 
                 forecast_aqi = calculate_aqi_pm25(forecast_pm25)
-                forecast_aqi = max(0, min(500, forecast_aqi if forecast_aqi is not None else 0))
+                forecast_aqi = max(15, min(500, forecast_aqi if forecast_aqi is not None else 50))
                 
                 forecast_data.append({
                     "datetime": future_time.isoformat(),
@@ -929,9 +935,9 @@ def get_forecast(city: str = Query(..., description="City name")):
             # Add daily pattern and random variation
             hour_factor = 1.0 + 0.2 * np.sin(2 * np.pi * future_time.hour / 24)  # Daily pattern
             random_factor = random.uniform(0.9, 1.1)
-            forecast_pm25 = max(0, base_pm25 * hour_factor * random_factor)
+            forecast_pm25 = max(10, base_pm25 * hour_factor * random_factor)  # Minimum realistic PM2.5
             forecast_aqi = calculate_aqi_pm25(forecast_pm25)
-            forecast_aqi = max(0, min(500, forecast_aqi if forecast_aqi is not None else 0))
+            forecast_aqi = max(15, min(500, forecast_aqi if forecast_aqi is not None else 50))
             
             forecast_data.append({
                 "datetime": future_time.isoformat(),
