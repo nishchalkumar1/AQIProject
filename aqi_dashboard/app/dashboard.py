@@ -1092,11 +1092,11 @@ elif st.session_state.current_page == "Interactive Map":
             control=True
         ).add_to(m)
         
-        # Add Stamen Terrain (English labels)
+        # Add OpenTopoMap (free terrain map with English labels)
         folium.TileLayer(
-            tiles='Stamen Terrain',
+            tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
             name='Terrain (English)',
-            attr='Stamen Design',
+            attr='OpenTopoMap',
             overlay=False,
             control=True
         ).add_to(m)
