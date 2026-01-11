@@ -211,6 +211,17 @@ def get_db_connection():
 def read_root():
     return {"message": "AQI Insight API is running"}
 
+@app.head("/")
+def read_root_head():
+    """Handle HEAD requests for monitoring services like UptimeRobot"""
+    return {}
+
+@app.get("/health")
+@app.head("/health")
+def health_check():
+    """Health check endpoint for monitoring services"""
+    return {"status": "healthy"}
+
 CITY_COORDS = {
     # Fallback static list for demo / offline use
     "Delhi": (28.61, 77.20),
