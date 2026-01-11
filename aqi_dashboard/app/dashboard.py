@@ -10,7 +10,7 @@ import os
 # Page Config
 st.set_page_config(
     page_title="VayuTel - Air Quality Intelligence",
-    page_icon="🌬️",
+    page_icon="favicon-32x32.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -644,7 +644,7 @@ if not city_options:
 
 if show_city_selector:
     selected_label = st.selectbox(
-        "Select Indian City (live list via OpenAQ)",
+        "Select Indian City",
         city_options,
         key="city_selector",
     )
@@ -1990,6 +1990,6 @@ st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #6B7280; font-size: 14px; padding: 28px;">
         <strong style="font-size: 18px;">VayuTel</strong> - Air Quality & Health Intelligence Platform<br>
-        Data sourced from Open-Meteo Air Quality API | Indian AQI Standards (CPCB)
+        Crafted by Nishchal Kumar
     </div>
     """, unsafe_allow_html=True)
