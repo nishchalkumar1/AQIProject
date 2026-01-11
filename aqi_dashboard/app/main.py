@@ -253,12 +253,70 @@ def get_cities():
 @app.get("/live-data")
 def get_live_data(city: str = Query(..., description="City name")):
     """
-    Return latest CPCB-based AQI for a city.
+    Return latest AQI for a city.
     Strategy:
-    1. Try live PM2.5 from Open-Meteo (current) using city coordinates → compute CPCB AQI.
-    2. If live API fails, fall back to latest record in local database.
+    1. Try IQAir API (official monitoring station data) - most accurate
+    2. Fall back to Open-Meteo if IQAir fails
+    3. Fall back to database if both APIs fail
     """
-    # 1) Live data from Open-Meteo using city coordinates
+    IQAIR_API_KEY = "2fbe4f3a-1ee7-4a7e-982b-94776bd0a075"
+    
+    # 1) Try IQAir API first (official monitoring station data)
+    coords = get_city_coords(city)
+    if coords is not None:
+        lat, lon = coords
+        try:
+            # IQAir API endpoint using coordinates
+            iqair_url = f"http://api.airvisual.com/v2/nearest_city?lat={lat}&lon={lon}&key={IQAIR_API_KEY}"
+            response = requests.get(iqair_url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "success" and "data" in data:
+                    iq_data = data["data"]
+                    current = iq_data.get("current", {})
+                    pollution = current.get("pollution", {})
+                    
+                    # IQAir returns US AQI - we need to convert to Indian CPCB AQI
+                    us_aqi = pollution.get("aqius", 0)
+                    us_aqi = max(0, min(500, int(us_aqi) if us_aqi else 0))
+                    
+                    # Estimate PM2.5 from US AQI using US EPA breakpoints (inverse calculation)
+                    # US AQI PM2.5 breakpoints: 0-50 (0-12), 51-100 (12.1-35.4), 101-150 (35.5-55.4), etc.
+                    if us_aqi <= 50:
+                        pm25 = us_aqi * 12.0 / 50.0
+                    elif us_aqi <= 100:
+                        pm25 = 12.1 + (us_aqi - 51) * (35.4 - 12.1) / 49.0
+                    elif us_aqi <= 150:
+                        pm25 = 35.5 + (us_aqi - 101) * (55.4 - 35.5) / 49.0
+                    elif us_aqi <= 200:
+                        pm25 = 55.5 + (us_aqi - 151) * (150.4 - 55.5) / 49.0
+                    elif us_aqi <= 300:
+                        pm25 = 150.5 + (us_aqi - 201) * (250.4 - 150.5) / 99.0
+                    else:
+                        pm25 = 250.5 + (us_aqi - 301) * (500.0 - 250.5) / 199.0
+                    
+                    pm25 = max(0, pm25)
+                    
+                    # Calculate Indian CPCB AQI from PM2.5
+                    indian_aqi = calculate_aqi_pm25(pm25)
+                    indian_aqi = max(0, min(500, indian_aqi if indian_aqi else 0))
+                    
+                    # Get timestamp
+                    time_str = pollution.get("ts", datetime.now().isoformat())
+                    
+                    return {
+                        "city": city,
+                        "datetime": time_str,
+                        "pm25": round(pm25, 1),
+                        "aqi": indian_aqi,
+                        "source": "IQAir API (Converted to Indian CPCB AQI)",
+                    }
+        except requests.exceptions.RequestException as e:
+            print(f"IQAir API request failed for {city}: {e}")
+        except Exception as e:
+            print(f"IQAir API failed for {city}: {e}")
+
+    # 2) Fallback to Open-Meteo using city coordinates
     coords = get_city_coords(city)
     if coords is not None:
         lat, lon = coords
@@ -282,14 +340,14 @@ def get_live_data(city: str = Query(..., description="City name")):
                             "datetime": data["current"].get("time", datetime.now().isoformat()),
                             "pm25": pm25,
                             "aqi": aqi,
-                            "source": "Open-Meteo Live API (CPCB AQI)",
+                            "source": "Open-Meteo API (Fallback)",
                         }
         except requests.exceptions.RequestException as e:
             print(f"Open-Meteo API request failed for {city}: {e}")
         except Exception as e:
             print(f"Open-Meteo live-data failed for {city}: {e}")
 
-    # 2) Fallback to Database: latest record that is NOT in the future
+    # 3) Fallback to Database: latest record that is NOT in the future
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -314,12 +372,12 @@ def get_live_data(city: str = Query(..., description="City name")):
             else:
                 res["aqi"] = max(0, min(500, float(res["aqi"])))
             
-            res["source"] = "Historical Database (CPCB AQI Fallback)"
+            res["source"] = "Historical Database (Fallback)"
             return res
     except Exception as e:
         print(f"Database fallback failed for {city}: {e}")
 
-    # 3) Final fallback with synthetic data for demo purposes
+    # 4) Final fallback with synthetic data for demo purposes
     if city in CITY_COORDS:
         import random
         pm25 = random.uniform(20, 150)  # Realistic PM2.5 range
