@@ -301,8 +301,18 @@ def get_live_data(city: str = Query(..., description="City name")):
                     indian_aqi = calculate_aqi_pm25(pm25)
                     indian_aqi = max(0, min(500, indian_aqi if indian_aqi else 0))
                     
-                    # Get timestamp
-                    time_str = pollution.get("ts", datetime.now().isoformat())
+                    # Get timestamp and convert to IST (IQAir returns UTC)
+                    time_str = pollution.get("ts", "")
+                    if time_str:
+                        try:
+                            # Parse UTC time and convert to IST (+5:30)
+                            utc_time = pd.to_datetime(time_str)
+                            ist_time = utc_time + pd.Timedelta(hours=5, minutes=30)
+                            time_str = ist_time.isoformat()
+                        except:
+                            time_str = datetime.now().isoformat()
+                    else:
+                        time_str = datetime.now().isoformat()
                     
                     return {
                         "city": city,
