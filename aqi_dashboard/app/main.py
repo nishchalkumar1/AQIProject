@@ -592,7 +592,7 @@ def get_history(city: str = Query(..., description="City name"), period: str = "
         df = df[df['datetime'] <= end_time]
         
         # Create hourly index for exactly 168 hours (7 days)
-        hourly_index = pd.date_range(start=start_time, end=end_time, freq='H')
+        hourly_index = pd.date_range(start=start_time, end=end_time, freq='h')
         hourly_index = hourly_index[:168]  # Ensure exactly 168 hours
         
         # Create a DataFrame with hourly index
@@ -664,7 +664,7 @@ def generate_synthetic_history(city, start_time, end_time):
         np.random.seed(42)
         
         # Create hourly index for exactly 168 hours (7 days)
-        hourly_index = pd.date_range(start=start_time, end=end_time, freq='H')
+        hourly_index = pd.date_range(start=start_time, end=end_time, freq='h')
         hourly_index = hourly_index[:168]  # Ensure exactly 168 hours
         
         # Generate realistic synthetic data with daily patterns
